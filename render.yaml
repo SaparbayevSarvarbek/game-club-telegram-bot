@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: game-club-telegram-bot
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: BACKEND_API_URL
+        value: https://game-club-backend.onrender.com/api
+      - key: BOT_API_KEY
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+      - key: REPORT_TIME
+        value: "22:00"
