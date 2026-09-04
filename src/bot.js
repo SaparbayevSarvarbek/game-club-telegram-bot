@@ -1,7 +1,8 @@
 import 'dotenv/config'
 import { Telegraf } from 'telegraf'
 import { getDailyReport, getMonthlyReport, getYearlyReport } from './api.js'
-import { formatReport, startReportScheduler } from './scheduler.js'
+import { formatReport, startReportScheduler, startBackupScheduler } from './scheduler.js'
+import { sendBackupToTelegram } from './backup.js'
 
 const token = process.env.BOT_TOKEN
 
@@ -14,11 +15,15 @@ const bot = new Telegraf(token)
 bot.start((ctx) =>
   ctx.reply(
     [
-      'GameClub bot ishga tushdi.',
+      '🎮 GameClub bot ishga tushdi.',
       '',
+      '📊 Hisobotlar:',
       '/day - bugungi hisobot',
       '/moth yoki /month - oylik hisobot',
       '/yil yoki /year - yillik hisobot',
+      '',
+      '🗄️ Backup:',
+      '/backup - database backup olish',
     ].join('\n')
   )
 )
@@ -36,7 +41,27 @@ bot.command(['report', 'day'], (ctx) => replyWithReport(ctx, getDailyReport))
 bot.command(['moth', 'month', 'oy'], (ctx) => replyWithReport(ctx, getMonthlyReport))
 bot.command(['yil', 'year'], (ctx) => replyWithReport(ctx, getYearlyReport))
 
+// /backup — admin foydalanuvchi uchun database backup
+bot.command('backup', async (ctx) => {
+  const chatId = ctx.chat.id
+  const adminChatId = process.env.ADMIN_CHAT_ID
+
+  if (String(chatId) !== String(adminChatId)) {
+    return ctx.reply('⛔ Sizda admin ruxsati yo\'q.')
+  }
+
+  try {
+    await ctx.reply('⏳ Database backup olinmoqda...')
+    const { filename, sizeMB } = await sendBackupToTelegram(bot, chatId)
+    await ctx.reply(`✅ Backup muvaffaqiyatli yuborildi!\n📄 Fayl: ${filename}\n📦 Hajm: ${sizeMB} MB`)
+  } catch (error) {
+    console.error('Backup xatoligi:', error.message)
+    await ctx.reply(`❌ Backup olishda xatolik:\n${error.message}`)
+  }
+})
+
 startReportScheduler(bot)
+startBackupScheduler(bot)
 bot
   .launch()
   .then(() => {

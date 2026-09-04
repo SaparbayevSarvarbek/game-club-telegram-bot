@@ -2,7 +2,7 @@ services:
   - type: worker
     name: game-club-telegram-bot
     runtime: node
-    buildCommand: npm install
+    buildCommand: apt-get update && apt-get install -y postgresql-client && npm install
     startCommand: npm start
     envVars:
       - key: BACKEND_API_URL
@@ -15,3 +15,5 @@ services:
         sync: false
       - key: REPORT_TIME
         value: "22:00"
+      - key: DATABASE_URL
+        sync: false

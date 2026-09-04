@@ -1,5 +1,6 @@
 import cron from 'node-cron'
 import { getDailyReport } from './api.js'
+import { sendBackupToTelegram } from './backup.js'
 
 const money = (value) => `${Number(value || 0).toLocaleString('uz-UZ')} so'm`
 
@@ -46,5 +47,30 @@ export function startReportScheduler(bot) {
       }
     },
     { timezone: 'Asia/Tashkent' }
+  )
+}
+
+export function startBackupScheduler(bot) {
+  const chatId = process.env.ADMIN_CHAT_ID
+  if (!chatId) {
+    console.warn('ADMIN_CHAT_ID o\'rnatilmagan. Backup scheduler ishlamaydi.')
+    return
+  }
+
+  // Har kuni 03:00 da (Asia/Tashkent) avtomatik backup olish
+  cron.schedule(
+    '0 3 * * *',
+    async () => {
+      try {
+        const { filename, sizeMB } = await sendBackupToTelegram(bot, chatId)
+        console.log(`Kunlik backup muvaffaqiyatli: ${filename} (${sizeMB} MB)`)
+      } catch (error) {
+        console.error('Kunlik backup xatoligi:', error.message)
+        await bot.telegram
+          .sendMessage(chatId, `❌ Kunlik backup xatoligi:\n${error.message}`)
+          .catch(() => {})
+      }
+    },
+    { timezone: 'Asia/Tashkent' },
   )
 }
