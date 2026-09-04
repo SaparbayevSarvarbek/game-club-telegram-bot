@@ -1,9 +1,31 @@
 import 'dotenv/config'
+import express from 'express'
 import { Telegraf } from 'telegraf'
 import { getDailyReport, getMonthlyReport, getYearlyReport } from './api.js'
 import { formatReport, startReportScheduler, startBackupScheduler } from './scheduler.js'
 import { sendBackupToTelegram } from './backup.js'
 
+// ---------------------------------------------------------------------------
+// HTTP server — Render Web Service port ochilishini talab qiladi
+// ---------------------------------------------------------------------------
+const app = express()
+const PORT = process.env.PORT || 3000
+
+app.get('/', (_req, res) => {
+  res.status(200).json({ status: 'ok', service: 'gameclub-telegram-bot' })
+})
+
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() })
+})
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`HTTP server port ${PORT} da ishlayapti`)
+})
+
+// ---------------------------------------------------------------------------
+// Telegram Bot
+// ---------------------------------------------------------------------------
 const token = process.env.BOT_TOKEN
 
 if (!token) {
