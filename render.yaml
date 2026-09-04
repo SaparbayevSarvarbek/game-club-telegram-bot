@@ -13,6 +13,8 @@ services:
         sync: false
       - key: ADMIN_CHAT_ID
         sync: false
+      - key: REPORT_CHAT_ID
+        sync: false
       - key: REPORT_TIME
         value: "22:00"
       - key: DATABASE_URL

@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import { Telegraf } from 'telegraf'
-import { getDailyReport, getMonthlyReport, getYearlyReport } from './api.js'
+import { getDailyReport, getMonthlyReport, getYearlyReport, getDebtors } from './api.js'
 import { formatReport, startReportScheduler, startBackupScheduler } from './scheduler.js'
 import { sendBackupToTelegram } from './backup.js'
 
@@ -48,6 +48,9 @@ bot.start((ctx) => {
       '/moth yoki /month - oylik hisobot',
       '/yil yoki /year - yillik hisobot',
       '',
+      '👥 Qarzdorlar:',
+      '/debtors yoki /qarzdor - qarzdorlar ro\'yxati',
+      '',
       '🗄️ Backup:',
       '/backup - database backup olish',
     ].join('\n')
@@ -56,8 +59,27 @@ bot.start((ctx) => {
 
 const replyWithReport = async (ctx, loader) => {
   try {
+    const chatId = ctx.chat.id
+    const statusMsg = await ctx.reply('⏳ Hisobot yuklanmoqda...')
+
+    // Har 4 sekundda "typing" action jo'natish
+    const actionInterval = setInterval(() => {
+      bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+    }, 4000)
+    bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+
     const report = await loader()
-    await ctx.reply(formatReport(report), { parse_mode: 'HTML' })
+
+    clearInterval(actionInterval)
+
+    // Xabarni yangilash — hisobot mazmuniga
+    await bot.telegram.editMessageText(
+      chatId,
+      statusMsg.message_id,
+      undefined,
+      formatReport(report),
+      { parse_mode: 'HTML' }
+    )
   } catch (error) {
     await ctx.reply(`Hisobot olishda xatolik: ${error.message}`)
   }
@@ -90,12 +112,89 @@ bot.command('backup', async (ctx) => {
   }
 
   try {
-    await ctx.reply('⏳ Database backup olinmoqda...')
+    // Loading animatsiya — backup yuklanayotganda "typing" ko'rsatadi
+    const statusMsg = await ctx.reply('⏳ Database backup olinmoqda...')
+
+    // Har 4 sekundda "upload_document" action jo'natish (Telegram 5 sekundda o'chiradi)
+    const actionInterval = setInterval(() => {
+      bot.telegram.sendChatAction(chatId, 'upload_document').catch(() => {})
+    }, 4000)
+    // Darhol birinchi action ni jo'natish
+    bot.telegram.sendChatAction(chatId, 'upload_document').catch(() => {})
+
     const { filename, sizeMB } = await sendBackupToTelegram(bot, chatId)
-    await ctx.reply(`✅ Backup muvaffaqiyatli yuborildi!\n📄 Fayl: ${filename}\n📦 Hajm: ${sizeMB} MB`)
+
+    clearInterval(actionInterval)
+
+    // Xabarni yangilash — "yuklanmoqda" dan "tayyor" ga
+    await bot.telegram.editMessageText(
+      chatId,
+      statusMsg.message_id,
+      undefined,
+      `✅ Backup muvaffaqiyatli yuborildi!\n📄 Fayl: ${filename}\n📦 Hajm: ${sizeMB} MB`
+    )
   } catch (error) {
     console.error('Backup xatoligi:', error.message)
     await ctx.reply(`❌ Backup olishda xatolik:\n${error.message}`)
+  }
+})
+
+// /debtors — qarzdorlar ro'yxati (chiroyli jadval ko'rinishida)
+const formatDebtors = (data) => {
+  if (!data.debtors || data.debtors.length === 0) {
+    return '📋 Qarzdorlar yo\'q\n\nHozircha hech qanday qarzdor mavjud emas.'
+  }
+
+  const lines = ['📋 QARZDORLAR RO\'YXATI', '━'.repeat(20), '']
+
+  data.debtors.forEach((d, i) => {
+    const name = d.last_name ? `${d.first_name} ${d.last_name}` : d.first_name
+    const phone = d.phone ? `+${d.phone}` : 'raqam yo\'q'
+    const debt = new Intl.NumberFormat('uz-UZ').format(d.total_debt)
+    const date = d.created_at || '—'
+
+    lines.push(`${i + 1}. ${name}`)
+    lines.push(`   📱 ${phone}`)
+    lines.push(`   💰 ${debt} so'm`)
+    lines.push(`   📅 ${date}`)
+    if (d.note) lines.push(`   📝 ${d.note}`)
+    lines.push('')
+  })
+
+  const totalDebt = data.debtors.reduce((sum, d) => sum + d.total_debt, 0)
+  const totalFormatted = new Intl.NumberFormat('uz-UZ').format(totalDebt)
+  lines.push('━'.repeat(20))
+  lines.push(`📊 Jami: ${data.count} ta qarzdor`)
+  lines.push(`💰 Umumiy qarz: ${totalFormatted} so'm`)
+
+  return lines.join('\n')
+}
+
+bot.command(['debtors', 'qarzdor'], async (ctx) => {
+  const chatId = ctx.chat.id
+  try {
+    const statusMsg = await ctx.reply('⏳ Qarzdorlar ro\'yxati yuklanmoqda...')
+
+    const actionInterval = setInterval(() => {
+      bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+    }, 4000)
+    bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
+
+    const data = await getDebtors()
+
+    clearInterval(actionInterval)
+
+    const message = formatDebtors(data)
+    await bot.telegram.editMessageText(
+      chatId,
+      statusMsg.message_id,
+      undefined,
+      `\`\`\`\n${message}\n\`\`\``,
+      { parse_mode: 'Markdown' }
+    )
+  } catch (error) {
+    console.error('Debtors xatoligi:', error.message)
+    await ctx.reply(`❌ Qarzdorlar ro'yxatini olishda xatolik:\n${error.message}`)
   }
 })
 

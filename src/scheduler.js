@@ -27,21 +27,21 @@ export function formatReport(report) {
 }
 
 export function startReportScheduler(bot) {
-  const chatId = process.env.ADMIN_CHAT_ID
-  const reportTime = process.env.REPORT_TIME || '22:00'
-  const [hour, minute] = reportTime.split(':')
-
-  if (!chatId) {
-    console.warn('ADMIN_CHAT_ID kiritilmagan. Scheduler xabar yubormaydi.')
+  // Kunlik hisobot — har kuni 04:00 da guruhga yuboriladi
+  const reportChatId = process.env.REPORT_CHAT_ID || process.env.ADMIN_CHAT_ID
+  if (!reportChatId) {
+    console.warn('REPORT_CHAT_ID kiritilmagan. Scheduler xabar yubormaydi.')
     return
   }
 
+  // 04:00 da kunlik hisobot
   cron.schedule(
-    `${Number(minute)} ${Number(hour)} * * *`,
+    '0 4 * * *',
     async () => {
       try {
         const report = await getDailyReport()
-        await bot.telegram.sendMessage(chatId, formatReport(report), { parse_mode: 'HTML' })
+        await bot.telegram.sendMessage(reportChatId, formatReport(report), { parse_mode: 'HTML' })
+        console.log(`Kunlik hisobot guruhga yuborildi: ${reportChatId}`)
       } catch (error) {
         console.error('Hisobot yuborishda xatolik:', error.message)
       }

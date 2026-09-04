@@ -25,3 +25,10 @@ export async function getYearlyReport(year) {
   })
   return response.data
 }
+
+export async function getDebtors() {
+  const response = await axios.get(`${BACKEND_API_URL}/bot/debtors`, {
+    headers: { 'x-bot-api-key': BOT_API_KEY },
+  })
+  return response.data
+}
