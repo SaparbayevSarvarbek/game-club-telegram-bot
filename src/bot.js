@@ -34,10 +34,14 @@ if (!token) {
 
 const bot = new Telegraf(token)
 
-bot.start((ctx) =>
+bot.start((ctx) => {
+  const chatId = ctx.chat.id
+  const firstName = ctx.from?.first_name || ''
   ctx.reply(
     [
-      '🎮 GameClub bot ishga tushdi.',
+      `🎮 Salom, ${firstName}!`,
+      '',
+      `👤 Sizning chat ID: ${chatId}`,
       '',
       '📊 Hisobotlar:',
       '/day - bugungi hisobot',
@@ -48,7 +52,7 @@ bot.start((ctx) =>
       '/backup - database backup olish',
     ].join('\n')
   )
-)
+})
 
 const replyWithReport = async (ctx, loader) => {
   try {
