@@ -25,17 +25,18 @@ export async function createBackup() {
   const url = new URL(dbUrl)
   const env = {
     ...process.env,
-    PGPASSWORD: url.password,
+    PGPASSWORD: decodeURIComponent(url.password),
+    PGSSLMODE: 'require',
   }
 
   try {
+    // To'liq connection string ni --dbname orqali uzatish (SSL, special chars muammolarini hal qiladi)
+    const connString = `postgresql://${url.username}:${encodeURIComponent(decodeURIComponent(url.password))}@${url.hostname}:${url.port || '5432'}${url.pathname}?sslmode=require`
+
     await execFileAsync(
       'pg_dump',
       [
-        '-h', url.hostname,
-        '-p', url.port || '5432',
-        '-U', url.username,
-        '-d', url.pathname.replace(/^\//, ''),
+        '--dbname', connString,
         '-f', filepath,
         '--no-owner',
         '--no-acl',

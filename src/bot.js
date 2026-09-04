@@ -72,8 +72,13 @@ bot.command('backup', async (ctx) => {
   const chatId = ctx.chat.id
   const adminChatId = process.env.ADMIN_CHAT_ID
 
-  // Chat ID ni tekshirish — user shaxsiy chatda yoki guruhda ishlatyaptimi
+  // Chat ID tekshirish — faqat shaxsiy chatda va faqat admin ga ruxsat
   if (adminChatId && String(chatId) !== String(adminChatId)) {
+    // Agar bu guruh bo'lsa — oddiy xabar
+    if (ctx.chat.type !== 'private') {
+      return ctx.reply('⛔ Sizda admin ruxsati yo\'q.')
+    }
+    // Shaxsiy chatda — chat ID ko'rsatish (admin sozlash uchun)
     console.log(`Backup rad etildi: chatId=${chatId}, adminChatId=${adminChatId}`)
     return ctx.reply(
       `⛔ Sizda admin ruxsati yo'q.\n\n` +
