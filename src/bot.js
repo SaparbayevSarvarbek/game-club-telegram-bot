@@ -68,8 +68,16 @@ bot.command('backup', async (ctx) => {
   const chatId = ctx.chat.id
   const adminChatId = process.env.ADMIN_CHAT_ID
 
-  if (String(chatId) !== String(adminChatId)) {
-    return ctx.reply('⛔ Sizda admin ruxsati yo\'q.')
+  // Chat ID ni tekshirish — user shaxsiy chatda yoki guruhda ishlatyaptimi
+  if (adminChatId && String(chatId) !== String(adminChatId)) {
+    console.log(`Backup rad etildi: chatId=${chatId}, adminChatId=${adminChatId}`)
+    return ctx.reply(
+      `⛔ Sizda admin ruxsati yo'q.\n\n` +
+      `Sizning chat ID: <code>${chatId}</code>\n` +
+      `Admin chat ID: <code>${adminChatId}</code>\n\n` +
+      `Agar bu sizning chat ID bo'lsa, .env faylda ADMIN_CHAT_ID ni o'zgartiring.`,
+      { parse_mode: 'HTML' }
+    )
   }
 
   try {
