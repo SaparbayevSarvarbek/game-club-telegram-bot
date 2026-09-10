@@ -15,8 +15,11 @@ app.get('/', (_req, res) => {
   res.status(200).json({ status: 'ok', service: 'gameclub-telegram-bot' })
 })
 
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', uptime: process.uptime() })
+// Cron/monitoring vositalari (masalan cron-job.org) "output too large" xatosini
+// bermasligi uchun javob har doim kichik va barqaror bo'lishi kerak.
+// `uptime` ni yaxlitlab, o'zgaruvchan uzun kasr qiymatdan qutulamiz — javob taxminan 30 byte.
+app.get(['/health', '/health/'], (_req, res) => {
+  res.status(200).json({ status: 'ok', uptime: Math.round(process.uptime()) })
 })
 
 app.listen(PORT, '0.0.0.0', () => {
