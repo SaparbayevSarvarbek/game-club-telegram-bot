@@ -34,16 +34,20 @@ export function startReportScheduler(bot) {
     return
   }
 
+  console.log(`Report scheduler ishga tushdi. Har kuni 04:00 (Asia/Tashkent) da hisobot yuboriladi. Chat ID: ${reportChatId}`)
+
   // 04:00 da kunlik hisobot
   cron.schedule(
     '0 4 * * *',
     async () => {
+      console.log(`[${new Date().toISOString()}] Report scheduler ishga tushdi...`)
       try {
         const report = await getDailyReport()
         await bot.telegram.sendMessage(reportChatId, formatReport(report), { parse_mode: 'HTML' })
         console.log(`Kunlik hisobot guruhga yuborildi: ${reportChatId}`)
       } catch (error) {
         console.error('Hisobot yuborishda xatolik:', error.message)
+        console.error('Hisobot xatolik stack:', error.stack)
       }
     },
     { timezone: 'Asia/Tashkent' }
@@ -57,18 +61,22 @@ export function startBackupScheduler(bot) {
     return
   }
 
+  console.log(`Backup scheduler ishga tushdi. Har kuni 03:00 (Asia/Tashkent) da backup olinadi. Chat ID: ${chatId}`)
+
   // Har kuni 03:00 da (Asia/Tashkent) avtomatik backup olish
   cron.schedule(
     '0 3 * * *',
     async () => {
+      console.log(`[${new Date().toISOString()}] Backup scheduler ishga tushdi...`)
       try {
         const { filename, sizeMB } = await sendBackupToTelegram(bot, chatId)
         console.log(`Kunlik backup muvaffaqiyatli: ${filename} (${sizeMB} MB)`)
       } catch (error) {
         console.error('Kunlik backup xatoligi:', error.message)
+        console.error('Backup xatolik stack:', error.stack)
         await bot.telegram
           .sendMessage(chatId, `❌ Kunlik backup xatoligi:\n${error.message}`)
-          .catch(() => {})
+          .catch((sendErr) => console.error('Xabar yuborishda xatolik:', sendErr.message))
       }
     },
     { timezone: 'Asia/Tashkent' },

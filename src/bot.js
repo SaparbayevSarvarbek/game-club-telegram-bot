@@ -57,19 +57,18 @@ bot.start((ctx) => {
 })
 
 const replyWithReport = async (ctx, loader) => {
+  const chatId = ctx.chat.id
+  let actionInterval = null
   try {
-    const chatId = ctx.chat.id
     const statusMsg = await ctx.reply('⏳ Hisobot yuklanmoqda...')
 
     // Har 4 sekundda "typing" action jo'natish
-    const actionInterval = setInterval(() => {
+    actionInterval = setInterval(() => {
       bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
     }, 4000)
     bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
 
     const report = await loader()
-
-    clearInterval(actionInterval)
 
     // Xabarni yangilash — hisobot mazmuniga
     await bot.telegram.editMessageText(
@@ -80,7 +79,11 @@ const replyWithReport = async (ctx, loader) => {
       { parse_mode: 'HTML' }
     )
   } catch (error) {
-    await ctx.reply(`Hisobot olishda xatolik: ${error.message}`)
+    console.error('replyWithReport xatoligi:', error.message)
+    await ctx.reply(`❌ Hisobot olishda xatolik:\n${error.message}`).catch(() => {})
+  } finally {
+    // Intervalni har doim tozalash — xato bo'lsa ham, muvaffaqiyatli bo'lsa ham
+    if (actionInterval) clearInterval(actionInterval)
   }
 }
 
@@ -92,6 +95,7 @@ bot.command(['yil', 'year'], (ctx) => replyWithReport(ctx, getYearlyReport))
 bot.command('backup', async (ctx) => {
   const chatId = ctx.chat.id
   const adminChatId = process.env.ADMIN_CHAT_ID
+  let actionInterval = null
 
   // Chat ID tekshirish — faqat shaxsiy chatda va faqat admin ga ruxsat
   if (adminChatId && String(chatId) !== String(adminChatId)) {
@@ -115,15 +119,13 @@ bot.command('backup', async (ctx) => {
     const statusMsg = await ctx.reply('⏳ Database backup olinmoqda...')
 
     // Har 4 sekundda "upload_document" action jo'natish (Telegram 5 sekundda o'chiradi)
-    const actionInterval = setInterval(() => {
+    actionInterval = setInterval(() => {
       bot.telegram.sendChatAction(chatId, 'upload_document').catch(() => {})
     }, 4000)
     // Darhol birinchi action ni jo'natish
     bot.telegram.sendChatAction(chatId, 'upload_document').catch(() => {})
 
     const { filename, sizeMB } = await sendBackupToTelegram(bot, chatId)
-
-    clearInterval(actionInterval)
 
     // Xabarni yangilash — "yuklanmoqda" dan "tayyor" ga
     await bot.telegram.editMessageText(
@@ -134,7 +136,11 @@ bot.command('backup', async (ctx) => {
     )
   } catch (error) {
     console.error('Backup xatoligi:', error.message)
-    await ctx.reply(`❌ Backup olishda xatolik:\n${error.message}`)
+    console.error('Backup xatolik stack:', error.stack)
+    await ctx.reply(`❌ Backup olishda xatolik:\n${error.message}`).catch(() => {})
+  } finally {
+    // Intervalni har doim tozalash
+    if (actionInterval) clearInterval(actionInterval)
   }
 })
 
@@ -171,17 +177,16 @@ const formatDebtors = (data) => {
 
 bot.command(['debtors', 'qarzdor'], async (ctx) => {
   const chatId = ctx.chat.id
+  let actionInterval = null
   try {
     const statusMsg = await ctx.reply('⏳ Qarzdorlar ro\'yxati yuklanmoqda...')
 
-    const actionInterval = setInterval(() => {
+    actionInterval = setInterval(() => {
       bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
     }, 4000)
     bot.telegram.sendChatAction(chatId, 'typing').catch(() => {})
 
     const data = await getDebtors()
-
-    clearInterval(actionInterval)
 
     const message = formatDebtors(data)
     await bot.telegram.editMessageText(
@@ -193,7 +198,11 @@ bot.command(['debtors', 'qarzdor'], async (ctx) => {
     )
   } catch (error) {
     console.error('Debtors xatoligi:', error.message)
-    await ctx.reply(`❌ Qarzdorlar ro'yxatini olishda xatolik:\n${error.message}`)
+    console.error('Debtors xatolik stack:', error.stack)
+    await ctx.reply(`❌ Qarzdorlar ro'yxatini olishda xatolik:\n${error.message}`).catch(() => {})
+  } finally {
+    // Intervalni har doim tozalash
+    if (actionInterval) clearInterval(actionInterval)
   }
 })
 
@@ -203,21 +212,36 @@ bot
   .launch()
   .then(async () => {
     console.log('GameClub Telegram bot ishga tushdi.')
+    console.log('Bot token:', token ? `${token.substring(0, 10)}...` : 'yo\'q')
+    console.log('ADMIN_CHAT_ID:', process.env.ADMIN_CHAT_ID || 'yo\'q')
+    console.log('REPORT_CHAT_ID:', process.env.REPORT_CHAT_ID || 'yo\'q')
+    console.log('BACKEND_API_URL:', process.env.BACKEND_API_URL || 'localhost:8000/api')
 
     // Bot commandlarini ro'yxatga olish — "/" bosilganda ko'rinadi
-    const commands = [
-      { command: 'start', description: 'Botni ishga tushirish' },
-      { command: 'day', description: 'Bugungi hisobot' },
-      { command: 'month', description: 'Oylik hisobot' },
-      { command: 'year', description: 'Yillik hisobot' },
-      { command: 'debtors', description: 'Qarzdorlar ro\'yxati' },
-      { command: 'backup', description: 'Database backup olish' },
-    ]
-    // Shaxsiy chat uchun
-    await bot.telegram.setMyCommands(commands, { scope: { type: 'default' } })
-    // Guruhlar uchun
-    await bot.telegram.setMyCommands(commands, { scope: { type: 'all_group_chats' } })
-    console.log('Bot commandlari ro\'yxatga olindi.')
+    try {
+      const commands = [
+        { command: 'start', description: 'Botni ishga tushirish' },
+        { command: 'day', description: 'Bugungi hisobot' },
+        { command: 'month', description: 'Oylik hisobot' },
+        { command: 'year', description: 'Yillik hisobot' },
+        { command: 'debtors', description: 'Qarzdorlar ro\'yxati' },
+        { command: 'backup', description: 'Database backup olish' },
+      ]
+
+      // Barcha scopelar uchun commandlarni o'rnatish
+      await bot.telegram.setMyCommands(commands)
+      console.log('✅ Bot commandlari default scope uchun o\'rnatildi')
+
+      // Guruhlar uchun ham
+      await bot.telegram.setMyCommands(commands, { scope: { type: 'all_group_chats' } })
+      console.log('✅ Bot commandlari guruhlar uchun o\'rnatildi')
+
+      // Shaxsiy chatlar uchun ham
+      await bot.telegram.setMyCommands(commands, { scope: { type: 'all_private_chats' } })
+      console.log('✅ Bot commandlari shaxsiy chatlar uchun o\'rnatildi')
+    } catch (error) {
+      console.error('⚠️ Bot commandlarini o\'rnatishda xatolik:', error.message)
+    }
   })
   .catch((error) => {
     const message = error?.message || String(error)
