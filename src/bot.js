@@ -46,16 +46,12 @@ bot.start((ctx) => {
       '',
       `👤 Sizning chat ID: ${chatId}`,
       '',
-      '📊 Hisobotlar:',
-      '/day - bugungi hisobot',
-      '/moth yoki /month - oylik hisobot',
-      '/yil yoki /year - yillik hisobot',
-      '',
-      '👥 Qarzdorlar:',
-      '/debtors yoki /qarzdor - qarzdorlar ro\'yxati',
-      '',
-      '🗄️ Backup:',
-      '/backup - database backup olish',
+      '📊 Buyruqlar:',
+      '/day — bugungi hisobot',
+      '/month — oylik hisobot',
+      '/year — yillik hisobot',
+      '/debtors — qarzdorlar ro\'yxati',
+      '/backup — database backup',
     ].join('\n')
   )
 })
@@ -205,8 +201,19 @@ startReportScheduler(bot)
 startBackupScheduler(bot)
 bot
   .launch()
-  .then(() => {
+  .then(async () => {
     console.log('GameClub Telegram bot ishga tushdi.')
+
+    // Bot commandlarini ro'yxatga olish — "/" bosilganda ko'rinadi
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Botni ishga tushirish' },
+      { command: 'day', description: 'Bugungi hisobot' },
+      { command: 'month', description: 'Oylik hisobot' },
+      { command: 'year', description: 'Yillik hisobot' },
+      { command: 'debtors', description: 'Qarzdorlar ro\'yxati' },
+      { command: 'backup', description: 'Database backup olish' },
+    ])
+    console.log('Bot commandlari ro\'yxatga olindi.')
   })
   .catch((error) => {
     const message = error?.message || String(error)
