@@ -205,14 +205,18 @@ bot
     console.log('GameClub Telegram bot ishga tushdi.')
 
     // Bot commandlarini ro'yxatga olish — "/" bosilganda ko'rinadi
-    await bot.telegram.setMyCommands([
+    const commands = [
       { command: 'start', description: 'Botni ishga tushirish' },
       { command: 'day', description: 'Bugungi hisobot' },
       { command: 'month', description: 'Oylik hisobot' },
       { command: 'year', description: 'Yillik hisobot' },
       { command: 'debtors', description: 'Qarzdorlar ro\'yxati' },
       { command: 'backup', description: 'Database backup olish' },
-    ])
+    ]
+    // Shaxsiy chat uchun
+    await bot.telegram.setMyCommands(commands, { scope: { type: 'default' } })
+    // Guruhlar uchun
+    await bot.telegram.setMyCommands(commands, { scope: { type: 'all_group_chats' } })
     console.log('Bot commandlari ro\'yxatga olindi.')
   })
   .catch((error) => {
