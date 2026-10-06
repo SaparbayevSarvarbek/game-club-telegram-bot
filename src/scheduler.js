@@ -1,5 +1,5 @@
 import cron from 'node-cron'
-import { getDailyReport } from './api.js'
+import { getDailyReport, getMonthlyReport } from './api.js'
 import { sendBackupToTelegram } from './backup.js'
 
 const money = (value) => `${Number(value || 0).toLocaleString('uz-UZ')} so'm`
@@ -95,5 +95,48 @@ export function startBackupScheduler(bot) {
       }
     },
     { timezone: 'Asia/Tashkent' },
+  )
+}
+
+const UZ_MONTHS = [
+  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
+  'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
+]
+
+export function startMonthlyReportScheduler(bot) {
+  const reportChatId = process.env.REPORT_CHAT_ID || process.env.ADMIN_CHAT_ID
+  if (!reportChatId) {
+    console.warn('REPORT_CHAT_ID kiritilmagan. Oylik hisobot scheduler xabar yubormaydi.')
+    return
+  }
+
+  console.log(`Oylik hisobot scheduler ishga tushdi. Har oyning 1-sanasi 04:00 (Asia/Tashkent) da o'tgan oylik hisobot yuboriladi. Chat ID: ${reportChatId}`)
+
+  // Har oyning 1-sanasi 04:00 da o'tgan oyning hisobotini yuborish
+  cron.schedule(
+    '0 4 1 * *',
+    async () => {
+      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tashkent' }))
+      // O'tgan oy: hozirgi oydan 1 oy oldin
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const monthStr = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`
+      const monthName = `${UZ_MONTHS[prevMonth.getMonth()]} ${prevMonth.getFullYear()}`
+      console.log(`[${new Date().toISOString()}] Oylik hisobot scheduler: ${monthName} uchun hisobot yuborilmoqda...`)
+
+      try {
+        const report = await getMonthlyReport(monthStr)
+        const text = report.message
+          ? report.message.replace(/Oylik hisobot/, `${monthName} — Oylik hisobot`)
+          : `<b>${monthName} — Oylik hisobot</b>\n\nMa'lumot topilmadi.`
+        await bot.telegram.sendMessage(reportChatId, text, { parse_mode: 'HTML' })
+        console.log(`Oylik hisobot guruhga yuborildi: ${reportChatId} (${monthName})`)
+      } catch (error) {
+        console.error(`Oylik hisobot yuborishda xatolik (${monthName}):`, error.message)
+        await bot.telegram
+          .sendMessage(reportChatId, `❌ Oylik hisobot xatoligi (${monthName}):\n${error.message}`)
+          .catch(() => {})
+      }
+    },
+    { timezone: 'Asia/Tashkent' }
   )
 }

@@ -10,6 +10,14 @@ export async function getDailyReport() {
   return response.data
 }
 
+export async function getDailyReportByDate(dateStr) {
+  const response = await axios.get(`${BACKEND_API_URL}/bot/daily-report`, {
+    params: { date: dateStr },
+    headers: { 'x-bot-api-key': BOT_API_KEY },
+  })
+  return response.data
+}
+
 export async function getMonthlyReport(month) {
   const response = await axios.get(`${BACKEND_API_URL}/bot/monthly-report`, {
     params: month ? { month } : {},

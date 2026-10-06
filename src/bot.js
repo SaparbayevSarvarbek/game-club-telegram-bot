@@ -1,8 +1,8 @@
 import 'dotenv/config'
 import express from 'express'
 import { Telegraf } from 'telegraf'
-import { getDailyReport, getMonthlyReport, getYearlyReport, getDebtors } from './api.js'
-import { formatReport, startReportScheduler, startBackupScheduler } from './scheduler.js'
+import { getDailyReport, getMonthlyReport, getYearlyReport, getDebtors, getDailyReportByDate } from './api.js'
+import { formatReport, startReportScheduler, startBackupScheduler, startMonthlyReportScheduler } from './scheduler.js'
 import { sendBackupToTelegram } from './backup.js'
 
 // ---------------------------------------------------------------------------
@@ -52,6 +52,7 @@ bot.start((ctx) => {
       '/year — yillik hisobot',
       '/debtors — qarzdorlar ro\'yxati',
       '/backup — database backup',
+      '/KK.OO.YYYY — muayyan sana hisoboti (masalan /06.08.2026)',
     ].join('\n')
   )
 })
@@ -90,6 +91,17 @@ const replyWithReport = async (ctx, loader) => {
 bot.command(['report', 'day'], (ctx) => replyWithReport(ctx, getDailyReport))
 bot.command(['moth', 'month', 'oy'], (ctx) => replyWithReport(ctx, getMonthlyReport))
 bot.command(['yil', 'year'], (ctx) => replyWithReport(ctx, getYearlyReport))
+
+// /DD.MM.YYYY — muayyan sana bo'yicha kunlik hisobot
+bot.hears(/^\/(\d{2})\.(\d{2})\.(\d{4})$/, async (ctx) => {
+  const [, day, month, year] = ctx.match
+  const dateStr = `${year}-${month}-${day}`
+  const parsed = new Date(`${year}-${month}-${day}`)
+  if (isNaN(parsed.getTime())) {
+    return ctx.reply('❌ Sana noto\'g\'ri. Namuna: /06.08.2026')
+  }
+  await replyWithReport(ctx, () => getDailyReportByDate(dateStr))
+})
 
 // /backup — admin foydalanuvchi uchun database backup
 bot.command('backup', async (ctx) => {
@@ -208,6 +220,7 @@ bot.command(['debtors', 'qarzdor'], async (ctx) => {
 
 startReportScheduler(bot)
 startBackupScheduler(bot)
+startMonthlyReportScheduler(bot)
 
 // Webhook ni o'chirish va polling rejimida ishga tushirish
 bot
