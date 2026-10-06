@@ -47,6 +47,21 @@ export function startReportScheduler(bot) {
         console.log(`Kunlik hisobot guruhga yuborildi: ${reportChatId}`)
       } catch (error) {
         console.error('Hisobot yuborishda xatolik:', error.message)
+
+        // Group supergroup ga o'tkazilgan bo'lsa, yangi chat ID haqida xabar berish
+        if (error.message.includes('group chat was upgraded to a supergroup')) {
+          console.error('━'.repeat(60))
+          console.error('❌ XATOLIK: Group supergroup ga o\'tkazilgan!')
+          console.error('')
+          console.error('Yangi supergroup chat ID ni topish uchun:')
+          console.error('1. Bot /start buyrug\'ini yangi supergroup da yuboring')
+          console.error('2. Botdan qaytgan yangi chat ID ni nusxalang')
+          console.error('3. Render.com Environment Variables da REPORT_CHAT_ID ni yangilang')
+          console.error('')
+          console.error(`Hozirgi (eski) chat ID: ${reportChatId}`)
+          console.error('━'.repeat(60))
+        }
+
         console.error('Hisobot xatolik stack:', error.stack)
       }
     },

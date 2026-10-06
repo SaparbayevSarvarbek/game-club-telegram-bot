@@ -208,14 +208,27 @@ bot.command(['debtors', 'qarzdor'], async (ctx) => {
 
 startReportScheduler(bot)
 startBackupScheduler(bot)
+
+// Webhook ni o'chirish va polling rejimida ishga tushirish
 bot
-  .launch()
+  .launch({
+    dropPendingUpdates: true,
+    allowedUpdates: ['message', 'callback_query']
+  })
   .then(async () => {
     console.log('GameClub Telegram bot ishga tushdi.')
     console.log('Bot token:', token ? `${token.substring(0, 10)}...` : 'yo\'q')
     console.log('ADMIN_CHAT_ID:', process.env.ADMIN_CHAT_ID || 'yo\'q')
     console.log('REPORT_CHAT_ID:', process.env.REPORT_CHAT_ID || 'yo\'q')
     console.log('BACKEND_API_URL:', process.env.BACKEND_API_URL || 'localhost:8000/api')
+
+    // Webhook o'chirilganini tasdiqlash
+    try {
+      await bot.telegram.deleteWebhook({ drop_pending_updates: true })
+      console.log('✅ Webhook o\'chirildi, polling rejimida ishlamoqda')
+    } catch (error) {
+      console.warn('⚠️ Webhook o\'chirishda xatolik:', error.message)
+    }
 
     // Bot commandlarini ro'yxatga olish — "/" bosilganda ko'rinadi
     try {
@@ -249,8 +262,24 @@ bot
     if (message.includes('ENOTFOUND') || message.includes('api.telegram.org')) {
       console.error('api.telegram.org ochilmayapti. Internet, DNS, VPN/proxy yoki firewall sozlamalarini tekshiring.')
     }
+    if (message.includes('409') || message.includes('Conflict')) {
+      console.error('409 Conflict: Boshqa bot instance ishlayotgan yoki webhook aktiv. Webhook ni o\'chirish uchun BotFather da /deletewebhook buyrug\'ini yuboring yoki await bot.telegram.deleteWebhook() ni chaqiring.')
+    }
     process.exit(1)
   })
 
-process.once('SIGINT', () => bot.stop('SIGINT'))
-process.once('SIGTERM', () => bot.stop('SIGTERM'))
+// Graceful shutdown — SIGTERM/SIGINT signallarida botni to'g'ri to'xtatish
+const shutdown = async (signal) => {
+  console.log(`${signal} signali qabul qilindi, bot to'xtatilmoqda...`)
+  try {
+    await bot.stop(signal)
+    console.log('Bot muvaffaqiyatli to\'xtatildi')
+    process.exit(0)
+  } catch (error) {
+    console.error('Bot to\'xtatishda xatolik:', error.message)
+    process.exit(1)
+  }
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'))
+process.once('SIGTERM', () => shutdown('SIGTERM'))
