@@ -47,12 +47,15 @@ bot.start((ctx) => {
       `👤 Sizning chat ID: ${chatId}`,
       '',
       '📊 Buyruqlar:',
-      '/day — bugungi hisobot',
-      '/month — oylik hisobot',
-      '/year — yillik hisobot',
+      '/day yoki /kun — bugungi hisobot',
+      '/kun 06.08.2026 — muayyan sana hisoboti',
+      '/06.08.2026 — sana bo\'yicha tezkor hisobot',
+      '/month yoki /oy — joriy oylik hisobot',
+      '/oy 08.2026 — muayyan oy hisoboti',
+      '/year yoki /yil — joriy yillik hisobot',
+      '/yil 2026 — muayyan yil hisoboti',
       '/debtors — qarzdorlar ro\'yxati',
       '/backup — database backup',
-      '/KK.OO.YYYY — muayyan sana hisoboti (masalan /06.08.2026)',
     ].join('\n')
   )
 })
@@ -88,19 +91,130 @@ const replyWithReport = async (ctx, loader) => {
   }
 }
 
-bot.command(['report', 'day'], (ctx) => replyWithReport(ctx, getDailyReport))
-bot.command(['moth', 'month', 'oy'], (ctx) => replyWithReport(ctx, getMonthlyReport))
-bot.command(['yil', 'year'], (ctx) => replyWithReport(ctx, getYearlyReport))
+// Matndan sana (YYYY-MM-DD) ajratib olish
+function parseDateText(text) {
+  if (!text) return null
+  const cleaned = text.trim().replace(/@\w+/g, '').trim()
+  const withoutCmd = cleaned.replace(/^\/(day|kun|report|sana)\s*/i, '').replace(/^\//, '').trim()
 
-// /DD.MM.YYYY — muayyan sana bo'yicha kunlik hisobot
-bot.hears(/^\/(\d{2})\.(\d{2})\.(\d{4})$/, async (ctx) => {
-  const [, day, month, year] = ctx.match
-  const dateStr = `${year}-${month}-${day}`
-  const parsed = new Date(`${year}-${month}-${day}`)
-  if (isNaN(parsed.getTime())) {
-    return ctx.reply('❌ Sana noto\'g\'ri. Namuna: /06.08.2026')
+  // 1) DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
+  const dmy = withoutCmd.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
+  if (dmy) {
+    const day = dmy[1].padStart(2, '0')
+    const month = dmy[2].padStart(2, '0')
+    const year = dmy[3]
+    return `${year}-${month}-${day}`
   }
-  await replyWithReport(ctx, () => getDailyReportByDate(dateStr))
+
+  // 2) YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
+  const ymd = withoutCmd.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/)
+  if (ymd) {
+    const year = ymd[1]
+    const month = ymd[2].padStart(2, '0')
+    const day = ymd[3].padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  return null
+}
+
+// Matndan oy (YYYY-MM) ajratib olish
+function parseMonthText(text) {
+  if (!text) return null
+  const cleaned = text.trim().replace(/@\w+/g, '').trim()
+  const withoutCmd = cleaned.replace(/^\/(month|moth|oy)\s*/i, '').replace(/^\//, '').trim()
+
+  // MM.YYYY, MM/YYYY, MM-YYYY
+  const my = withoutCmd.match(/^(\d{1,2})[./-](\d{4})$/)
+  if (my) {
+    const month = my[1].padStart(2, '0')
+    const year = my[2]
+    return `${year}-${month}`
+  }
+
+  // YYYY-MM, YYYY.MM
+  const ym = withoutCmd.match(/^(\d{4})[./-](\d{1,2})$/)
+  if (ym) {
+    const year = ym[1]
+    const month = ym[2].padStart(2, '0')
+    return `${year}-${month}`
+  }
+
+  return null
+}
+
+// Matndan yil (YYYY) ajratib olish
+function parseYearText(text) {
+  if (!text) return null
+  const cleaned = text.trim().replace(/@\w+/g, '').trim()
+  const withoutCmd = cleaned.replace(/^\/(year|yil)\s*/i, '').replace(/^\//, '').trim()
+
+  const y = withoutCmd.match(/^(\d{4})$/)
+  if (y) {
+    const year = parseInt(y[1], 10)
+    if (year >= 2000 && year <= 2100) {
+      return year
+    }
+  }
+  return null
+}
+
+// /day, /kun, /report [sana]
+bot.command(['report', 'day', 'kun', 'sana'], (ctx) => {
+  const text = ctx.message?.text || ''
+  const dateStr = parseDateText(text)
+  if (dateStr) {
+    return replyWithReport(ctx, () => getDailyReport(dateStr))
+  }
+  return replyWithReport(ctx, () => getDailyReport())
+})
+
+// /month, /oy [oy]
+bot.command(['moth', 'month', 'oy'], (ctx) => {
+  const text = ctx.message?.text || ''
+  const monthStr = parseMonthText(text)
+  if (monthStr) {
+    return replyWithReport(ctx, () => getMonthlyReport(monthStr))
+  }
+  return replyWithReport(ctx, () => getMonthlyReport())
+})
+
+// /year, /yil [yil]
+bot.command(['yil', 'year'], (ctx) => {
+  const text = ctx.message?.text || ''
+  const yearNum = parseYearText(text)
+  if (yearNum) {
+    return replyWithReport(ctx, () => getYearlyReport(yearNum))
+  }
+  return replyWithReport(ctx, () => getYearlyReport())
+})
+
+// To'g'ridan-to'g'ri sana kiritilganda (masalan /06.08.2026 yoki 06.08.2026 yoki /2026-08-06)
+bot.hears(/^(\/)?(\d{1,2}[./-]\d{1,2}[./-]\d{4}|\d{4}[./-]\d{1,2}[./-]\d{1,2})(@\w+)?$/, async (ctx) => {
+  const text = ctx.message?.text || ''
+  const dateStr = parseDateText(text)
+  if (dateStr) {
+    return replyWithReport(ctx, () => getDailyReport(dateStr))
+  }
+  return ctx.reply('❌ Sana noto\'g\'ri. Namuna: /06.08.2026 yoki 06.08.2026')
+})
+
+// To'g'ridan-to'g'ri oy kiritilganda (masalan /08.2026 yoki 08.2026 yoki /2026-08)
+bot.hears(/^(\/)?(\d{1,2}[./-]\d{4}|\d{4}[./-]\d{1,2})(@\w+)?$/, async (ctx) => {
+  const text = ctx.message?.text || ''
+  const monthStr = parseMonthText(text)
+  if (monthStr) {
+    return replyWithReport(ctx, () => getMonthlyReport(monthStr))
+  }
+})
+
+// To'g'ridan-to'g'ri 4 xonali yil kiritilganda (masalan /2026)
+bot.hears(/^\/(\d{4})(@\w+)?$/, async (ctx) => {
+  const text = ctx.message?.text || ''
+  const yearNum = parseYearText(text)
+  if (yearNum) {
+    return replyWithReport(ctx, () => getYearlyReport(yearNum))
+  }
 })
 
 // /backup — admin foydalanuvchi uchun database backup

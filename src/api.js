@@ -3,8 +3,9 @@ import axios from 'axios'
 const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://localhost:8000/api'
 const BOT_API_KEY = process.env.BOT_API_KEY || 'change-bot-secret'
 
-export async function getDailyReport() {
+export async function getDailyReport(date) {
   const response = await axios.get(`${BACKEND_API_URL}/bot/daily-report`, {
+    params: date ? { date } : {},
     headers: { 'x-bot-api-key': BOT_API_KEY },
   })
   return response.data
